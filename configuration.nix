@@ -178,6 +178,7 @@
       mpv
       git
       kitty
+      prismlauncher
     ];
   };
 
