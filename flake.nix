@@ -11,9 +11,13 @@
       url = "github:caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-minecraft = {
+      url = "github:Infinidoge/nix-minecraft";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, home-manager, ...}@inputs: {
+  outputs = { nixpkgs, home-manager, caelestia-shell, ...}@inputs: {
     nixosConfigurations.hyprland = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
@@ -27,6 +31,9 @@
 	    extraSpecialArgs = { inherit inputs; };
 	    users.schuyler = import ./home.nix;
 	    backupFileExtension = "backup";
+	    sharedModules = [
+	      caelestia-shell.homeManagerModules.default
+	    ];
 	  };
 	}
       ];

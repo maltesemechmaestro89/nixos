@@ -8,7 +8,10 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      inputs.nix-minecraft.nixosModules.minecraft-servers
     ];
+
+  nixpkgs.overlays = [ inputs.nix-minecraft.overlay ];
 
   # Bootloader.
   boot.loader.grub = {
@@ -20,6 +23,12 @@
 
   boot.loader.efi.canTouchEfiVariables = true;
 
+  boot.kernelParams = [
+    "mem_sleep_default=s2idle"
+    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+    "nvidia.NVreg_TemporaryFilePath=/var/tmp"
+  ];
+
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
@@ -29,7 +38,10 @@
 
   hardware.nvidia = {
     modesetting.enable = true;
-    powerManagement.enable = true;
+    powerManagement = {
+      enable = true;
+      finegrained = false;
+    };
     open = true;
     nvidiaSettings = true;
     
@@ -103,10 +115,7 @@
     ];
 
   fontconfig = {
-      antialias = true;
       defaultFonts = {
-        serif = [ "Ubuntu" ];
-        sansSerif = [ "Ubuntu" ];
         monospace = [ "JetBrainsMono Nerd Font Propo" ];
       };
     };
@@ -175,9 +184,12 @@
       fastfetch
       vesktop
       obs-studio
-      mpv
       git
       kitty
+      btop
+      htop
+      cmatrix
+      spotify
       prismlauncher
     ];
   };
@@ -185,20 +197,88 @@
   # Install firefox.
   programs.firefox = {
     enable = true;
-    policies.Homepage.URL = "https://search.nixos.org";
     policies.DisableTelemetry = true;
   };
+
+  programs.steam = {
+    enable = true;
+  };
+
+  programs.gpu-screen-recorder.enable = true;
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
-  environment.systemPackages = [
-    pkgs.vim
-    pkgs.wget
-    inputs.caelestia-shell.packages."x86_64-linux".with-cli
+  environment.systemPackages = with pkgs; [
+    vim
+    wget
+    papirus-icon-theme
+    unzip
+    gpu-screen-recorder-gtk
+    pavucontrol
   ];
+
+  services.minecraft-server = {
+    enable = false;
+    eula = true;
+    openFirewall = true;
+
+    serverProperties = {
+      difficulty = "hard";
+      motd = "hello to my minecaft server thank you";
+    };
+
+    jvmOpts = "-Xms4G -Xmx6G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5";
+
+    package = pkgs.minecraft-server.overrideAttrs (oldAttrs: rec {
+      version = "26.2"; # The specific release you are targeting
+      url = "https://piston-data.mojang.com/v1/objects/823e2250d24b3ddac457a60c92a6a941943fcd6a/server.jar"; # Replace with official MOJANG URL
+      sha256 = "1i9ynvmh1h46v310jmv08rz0cxrgfb1dqp8f9d5mxplqb2rdzb6d"; # Replace with the calculated SHA256
+    }); 
+  };
+
+  services.minecraft-servers = {
+    enable = false;
+    eula = true;
+    openFirewall = true;
+    servers.neoforge = {
+      enable = true;
+
+      package = pkgs.neoforgeServers.neoforge-1_21_1;
+      autoStart = false;
+      serverProperties = {
+        level-seed = -504904575;
+	difficulty = "normal";
+	spawn-protection = 0;
+	motd = "create aeronautics";
+      };
+
+      symlinks = {
+        mods = pkgs.linkFarmFromDrvs "mods" (
+          builtins.attrValues {
+            Create = pkgs.fetchurl {
+              url = "https://cdn.modrinth.com/data/LNytGWDc/versions/UjX6dr61/create-1.21.1-6.0.10.jar";
+              sha512 = "11cc8fc049d2f67f6548c7abfada6b82a3adb5c7ca410a742de04bbca76e03862c518721b88d806f6e6d768a4d68531fdb903a85859b25d1484d550cc7bafd4b";
+            };
+            Create-Aeronautics = pkgs.fetchurl {
+              url = "https://cdn.modrinth.com/data/oWaK0Q19/versions/w7zlLnea/create-aeronautics-bundled-1.21.1-1.3.0.jar";
+              sha512 = "2abba2e166a0ec8d42ab06108b63070d61f985420ecca8739c5b2300561b31486b69b3ad13310b0c459edb9edebeffb55a4cdf4ce493805833d32f5bde9ce778";
+            };
+	    Sable = pkgs.fetchurl {
+              url = "https://cdn.modrinth.com/data/T9PomCSv/versions/1L6XJqnY/sable-neoforge-1.21.1-2.0.3.jar";
+	      sha512 = "c13c4da086001c205361905cd3a6c59a76e3c7d4c082265aaf3baf2fd30c79808f6634bca89aba29db5c096aa7da4066f76454093c306c3ae91c6c0d4d63ae0d";
+	    };
+            JEI = pkgs.fetchurl {
+              url = "https://cdn.modrinth.com/data/u6dRKJwZ/versions/BTB3Mx37/jei-1.21.1-neoforge-19.27.0.344.jar";
+	      sha512 = "7209d7b39d2867bd7bd2b90c4c1f085a327d9fe625ba25147f488de2516738d4b5d3abcccbb321476080c39b5b244e97d4de8bb456703afa7df3f59321a909b0";
+	    };
+          }
+        );
+      };
+    };
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
